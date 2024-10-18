@@ -2271,7 +2271,7 @@ ggcorrplot(m2$coef_corr, lab = TRUE) +
 </div>
 <div id="session-info" class="section level2">
 <h2>Session Info</h2>
-<pre><code>## [1] &quot;Fri Oct 18 10:08:52 2024&quot;</code></pre>
+<pre><code>## [1] &quot;Fri Oct 18 13:15:12 2024&quot;</code></pre>
 <pre><code>## R version 4.4.1 (2024-06-14)
 ## Platform: aarch64-apple-darwin20
 ## Running under: macOS Sonoma 14.4
@@ -2290,32 +2290,40 @@ ggcorrplot(m2$coef_corr, lab = TRUE) +
 ## [1] stats     graphics  grDevices utils     datasets  methods   base     
 ## 
 ## other attached packages:
-## [1] qrng_0.0-10     GGally_2.2.1    ggplot2_3.5.1   tram_1.1-2     
-## [5] mvtnorm_1.3-1   mlt_1.6-0       basefun_1.1-4   variables_1.1-1
+##  [1] ggcorrplot_0.1.4.1 corrplot_0.95      viridis_0.6.5      viridisLite_0.4.2 
+##  [5] pheatmap_1.0.12    biostatUZH_2.2.7   MASS_7.3-61        survival_3.7-0    
+##  [9] qrng_0.0-10        GGally_2.2.1       ggplot2_3.5.1      tram_1.1-2        
+## [13] mvtnorm_1.3-1      mlt_1.6-0          basefun_1.1-4      variables_1.1-1   
 ## 
 ## loaded via a namespace (and not attached):
-##  [1] gtable_0.3.5         xfun_0.48            bslib_0.8.0         
-##  [4] lattice_0.22-6       numDeriv_2016.8-1.1  quadprog_1.5-8      
-##  [7] vctrs_0.6.5          tools_4.4.1          generics_0.1.3      
-## [10] sandwich_3.1-1       tibble_3.2.1         fansi_1.0.6         
-## [13] highr_0.11           coneproj_1.19        pkgconfig_2.0.3     
-## [16] Matrix_1.7-0         RColorBrewer_1.1-3   alabama_2023.1.0    
-## [19] lifecycle_1.0.4      farver_2.1.2         compiler_4.4.1      
-## [22] munsell_0.5.1        codetools_0.2-20     htmltools_0.5.8.1   
-## [25] sass_0.4.9           yaml_2.3.10          Formula_1.2-5       
-## [28] pillar_1.9.0         nloptr_2.1.1         jquerylib_0.1.4     
-## [31] tidyr_1.3.1          MASS_7.3-61          cachem_1.1.0        
-## [34] multcomp_1.4-26      ggstats_0.7.0        tidyselect_1.2.1    
-## [37] digest_0.6.37        dplyr_1.1.4          purrr_1.0.2         
-## [40] labeling_0.4.3       splines_4.4.1        fastmap_1.2.0       
-## [43] grid_4.4.1           colorspace_2.1-1     cli_3.6.3           
-## [46] magrittr_2.0.3       survival_3.7-0       utf8_1.2.4          
-## [49] orthopolynom_1.0-6.1 TH.data_1.1-2        withr_3.0.1         
-## [52] scales_1.3.0         rmarkdown_2.28       BB_2019.10-1        
-## [55] zoo_1.8-12           evaluate_1.0.1       knitr_1.48          
-## [58] rlang_1.1.4          Rcpp_1.0.13          glue_1.8.0          
-## [61] polynom_1.4-1        rstudioapi_0.17.0    jsonlite_1.8.9      
-## [64] R6_2.5.1             plyr_1.8.9</code></pre>
+##  [1] tidyselect_1.2.1         orthopolynom_1.0-6.1     dplyr_1.1.4             
+##  [4] farver_2.1.2             fastmap_1.2.0            TH.data_1.1-2           
+##  [7] digest_0.6.37            lifecycle_1.0.4          magrittr_2.0.3          
+## [10] compiler_4.4.1           rlang_1.1.4              sass_0.4.9              
+## [13] tools_4.4.1              utf8_1.2.4               yaml_2.3.10             
+## [16] data.table_1.16.2        knitr_1.48               BB_2019.10-1            
+## [19] labeling_0.4.3           alabama_2023.1.0         plyr_1.8.9              
+## [22] RColorBrewer_1.1-3       multcomp_1.4-26          withr_3.0.1             
+## [25] purrr_1.0.2              numDeriv_2016.8-1.1      grid_4.4.1              
+## [28] fansi_1.0.6              xtable_1.8-4             colorspace_2.1-1        
+## [31] future_1.34.0            globals_0.16.3           scales_1.3.0            
+## [34] cli_3.6.3                rmarkdown_2.28           generics_0.1.3          
+## [37] rstudioapi_0.17.0        future.apply_1.11.2      reshape2_1.4.4          
+## [40] minqa_1.2.8              polynom_1.4-1            cachem_1.1.0            
+## [43] stringr_1.5.1            splines_4.4.1            parallel_4.4.1          
+## [46] vctrs_0.6.5              boot_1.3-31              Matrix_1.7-0            
+## [49] sandwich_3.1-1           jsonlite_1.8.9           Formula_1.2-5           
+## [52] listenv_0.9.1            tidyr_1.3.1              jquerylib_0.1.4         
+## [55] cmprsk_2.2-12            glue_1.8.0               parallelly_1.38.0       
+## [58] nloptr_2.1.1             ggstats_0.7.0            codetools_0.2-20        
+## [61] stringi_1.8.4            gtable_0.3.5             quadprog_1.5-8          
+## [64] lme4_1.1-35.5            munsell_0.5.1            tibble_3.2.1            
+## [67] pillar_1.9.0             coneproj_1.19            htmltools_0.5.8.1       
+## [70] lava_1.8.0               R6_2.5.1                 evaluate_1.0.1          
+## [73] lattice_0.22-6           highr_0.11               ReplicationSuccess_1.3.2
+## [76] bslib_0.8.0              Rcpp_1.0.13              gridExtra_2.3           
+## [79] psy_1.2                  nlme_3.1-166             prodlim_2024.06.25      
+## [82] xfun_0.48                zoo_1.8-12               pkgconfig_2.0.3</code></pre>
 <pre><code>## 
 ## CPU: Apple M3 Max | Cores: 16
 ## RAM: 64.0 GiB</code></pre>
