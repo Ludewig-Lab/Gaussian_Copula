@@ -54,7 +54,7 @@ fit_mmlt_flexible <- function(dataframe,
   # make sure to exclude the marginal covariate from the responses, a regression on itself causes errors
   exclusion_variable <- ifelse(trimws(sub("~", "", multivariate_formula)) != "1", trimws(sub("~", "", multivariate_formula)), "")
   nm <- setdiff(names(dataframe), exclusion_variable) # if the argument is 1, the exclusion will be "", which is ignored on this line
-  nm <- setdiff(nm, exclude_vars) # if the argument is 1, the exclusion will be "", which is ignored on this line
+  nm <- setdiff(nm, exclude_vars) 
   
   
   # Specify Optmizers
@@ -127,9 +127,7 @@ fit_mmlt_flexible <- function(dataframe,
   coef_corr <- tryCatch( # If we have stratified correlation matrices, this will fail, only useful for combined correlations
     expr = {
         as.array(coef(mm, type="Corr"))[,,1]
-    },
-    error = function(e){ 
-    })
+    },error = function(e){  })
   
   coef_lambda <- coef(mm)
   standard_errors_lambda <- sqrt(diag(vcov(mm)))
@@ -195,6 +193,11 @@ m1$n_par_marginal
 m1$n_par_multivariate
 m1$n_par_total
 m1$n_obs
+
+# if we only want to see the correlation p-values and format the nicely:
+library(biostatUZH) # installation: devtools::install_github(repo = "felix-hof/biostatUZH")
+correlation_pvals <- m1$p_values[m1$n_par_marginal+1:m1$n_par_multivariate]
+cbind(names(correlation_pvals), format.pval(correlation_pvals))
 ```
 
 Including Species as a discrete covariate:
