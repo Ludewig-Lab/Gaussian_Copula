@@ -1,0 +1,382 @@
+---
+title: "Gaussian Copula Demo"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F, cache = T)
+```
+
+## Package Import
+
+```{r}
+library(tram)
+library(mvtnorm)
+
+
+```
+
+## Wrapper Function 
+
+```{r}
+
+fit_mmlt_flexible <- function(dataframe,
+                              seed=490,
+                              marginal_formula="~ 1",
+                              multivariate_formula="~ 1",
+                              continuous_vars = c(),
+                              discrete_vars = c(),
+                              exclude_vars = c(), # removes a variable for the responses
+                              continuous_formula = "default",
+                              order=6
+                              ){
+  require(tram)
+  require(qrng)
+  set.seed(seed)
+  
+  # Check if all continuous and discrete variables are in the dataframe
+  all_vars <- c(continuous_vars, discrete_vars)
+  missing_vars <- setdiff(all_vars, names(dataframe))
+  if (length(missing_vars) > 0) {
+    warning(paste("Missing variables in dataframe:", paste(missing_vars, collapse = ", "), ", omitting"))
+  }
+  
+  # make sure to exclude the marginal covariate from the responses, a regression on itself causes errors
+  exclusion_variable <- ifelse(trimws(sub("~", "", multivariate_formula)) != "1", trimws(sub("~", "", multivariate_formula)), "")
+  nm <- setdiff(names(dataframe), exclusion_variable) # if the argument is 1, the exclusion will be "", which is ignored on this line
+  nm <- setdiff(nm, exclude_vars) # if the argument is 1, the exclusion will be "", which is ignored on this line
+  
+  
+  # Specify Optmizers
+  op <- mltoptim()[1:3] # Order: auglag, spg, nloptr 
+  
+  m <- list() # Initialize m as a list of marginal models for the joint call below
+  for (i in seq_along(nm)) {
+    name <- nm[i]
+    
+    if(!(name %in% exclude_vars)){
+      if (name %in% discrete_vars) {
+        
+        formula_string <- paste("R(", nm[i], ", as.R.interval= TRUE) ", marginal_formula)
+        formula <- as.formula(formula_string)
+        
+        m[[i]] <- BoxCox(formula, data = dataframe, order=order)
+        
+      } else {
+        if(!(name %in% continuous_vars )){
+          warning(paste(name,"not categorized, including it as continuous"))
+        }
+        
+        if(continuous_formula=="interval") {
+          # The likelihood is  calculated over intervals
+          # trans.fun. is non parametric likelihood
+          
+          formula_string <- paste("R(", nm[i], ", as.R.interval= TRUE) ", marginal_formula)
+          formula <- as.formula(formula_string)
+          
+        } else if(continuous_formula=="ordered") {
+          formula_string <- paste("R(", nm[i], ", as.R.ordered= TRUE) ", marginal_formula)
+          formula <- as.formula(formula_string)
+          
+        } else {
+          # log density
+          # The likelihood is the continuous density on Bernstein Polynomial
+          
+          formula_string <- paste("R(", nm[i], ") ", marginal_formula)
+          formula <- as.formula(formula_string)
+        }
+        
+        m[[i]] <- BoxCox(formula, data = dataframe, order=order) # add the formula from above
+        
+      } 
+    }
+    
+  }
+  
+  
+  m$data <- dataframe
+  m$formula <- as.formula(multivariate_formula)
+  m$optim <- op
+  
+  # Always Joint here:
+  m$domargins <- TRUE
+  m$theta <- coef(m) # Use hot start
+  mm <- do.call("mmlt", m)
+  
+  log_likelihood <- logLik(mm)
+  standard_errors <- sqrt(diag(vcov(mm)))
+  
+  AIC <- 2*length(coef(mm)) - 2*as.numeric(log_likelihood)
+  BIC <- length(coef(mm))*log(nrow(dataframe)) - 2*as.numeric(log_likelihood)
+  
+  return(
+    list(
+      object = mm,
+      coefficients = coef(mm),
+      standard_errors = standard_errors,
+      logLik = log_likelihood,
+      AIC = AIC,
+      BIC = BIC
+    )
+  )
+}
+
+```
+
+## Example Dataset: Iris
+
+```{r}
+dataframe <- iris
+
+library(GGally)
+ggpairs(dataframe)
+```
+
+
+
+```{r}
+str(dataframe)
+
+```
+
+## Different Copula Versions
+
+Omitting the species:
+
+```{r}
+m1 <- fit_mmlt_flexible(dataframe,
+                        marginal_formula="~ 1",
+                        multivariate_formula="~ 1",
+                        continuous_vars = c("Sepal.Length", "Sepal.Width",  "Petal.Length", "Petal.Width" ),
+                        discrete_vars = c(),
+                        exclude_vars = c("Species"),
+                        order = 6
+                        )
+coef(m1)
+m1$AIC
+m1$BIC
+
+```
+
+Including Species as a discrete covariate:
+
+```{r}
+m2 <- fit_mmlt_flexible(dataframe,
+                        marginal_formula="~ 1",
+                        multivariate_formula="~ 1",
+                        continuous_vars = c("Sepal.Length", "Sepal.Width",  "Petal.Length", "Petal.Width" ),
+                        discrete_vars = c("Species")
+)
+coef(m2)
+m2$AIC
+m2$BIC
+
+```
+
+
+Calculating a correlation matrix per species:
+
+```{r}
+m3 <- fit_mmlt_flexible(dataframe,
+                        marginal_formula="~ 1",
+                        multivariate_formula="~ Species",
+                        continuous_vars = c("Sepal.Length", "Sepal.Width",  "Petal.Length", "Petal.Width" ),
+                        discrete_vars = c()
+)
+coef(m3)
+m3$AIC
+m3$BIC
+
+```
+
+Correlation matrix per species, but the transformation is limited to a polynomial to order of 2:
+
+```{r}
+m4 <- fit_mmlt_flexible(dataframe,
+                        marginal_formula="~ 1",
+                        multivariate_formula="~ Species",
+                        continuous_vars = c("Sepal.Length", "Sepal.Width",  "Petal.Length", "Petal.Width" ),
+                        discrete_vars = c(),
+                        order=2
+)
+coef(m4)
+m4$AIC
+m4$BIC
+
+```
+
+Including a marginal species covariate, and a correlation matrix per species:
+
+```{r}
+m5 <- fit_mmlt_flexible(dataframe,
+                        marginal_formula="~ Species",
+                        multivariate_formula="~ Species",
+                        continuous_vars = c("Sepal.Length", "Sepal.Width",  "Petal.Length", "Petal.Width" ),
+                        discrete_vars = c()
+)
+coef(m5)
+m5$AIC
+m5$BIC
+
+
+```
+
+Adding a scale term to the marginal models to account for different dispersions:
+
+
+```{r}
+m6 <- fit_mmlt_flexible(dataframe,
+                        marginal_formula="~ Species | Species",
+                        multivariate_formula="~ 1 ",
+                        continuous_vars = c("Sepal.Length", "Sepal.Width",  "Petal.Length", "Petal.Width" ),
+                        discrete_vars = c()
+)
+coef(m6)
+m6$AIC
+m6$BIC
+
+```
+
+Adding a conditional baseline transformation that depends on the species as well as a correlation matrix per species:
+
+```{r}
+m7 <- fit_mmlt_flexible(dataframe,
+                        marginal_formula=" | Species ~ 1",
+                        multivariate_formula="~ Species ",
+                        continuous_vars = c("Sepal.Length", "Sepal.Width",  "Petal.Length", "Petal.Width" ),
+                        discrete_vars = c(),
+                        exclude_vars = c("Species")
+)
+coef(m7)
+m7$AIC
+m7$BIC
+
+```
+
+Comparing the AIC and BIC of all these models:
+
+
+```{r}
+c(m1$AIC, m2$AIC, m3$AIC, m4$AIC, m5$AIC, m6$AIC, m7$AIC)
+c(m1$BIC, m2$BIC, m3$BIC, m4$BIC, m5$BIC, m6$BIC, m7$BIC)
+
+```
+
+
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+## Session Info
+
+```{r, echo=F}
+date()
+
+sessionInfo()
+
+# CPU and RAM info if benchmarkme is installed
+if(require(benchmarkme)) cat(sprintf("\nCPU: %s | Cores: %d\nRAM: %.1f GiB\n", get_cpu()$model_name, get_cpu()$no_of_cores, as.numeric(get_ram()) / 1024^3))
+
+```
+
