@@ -4,6 +4,15 @@ output: html_document
 date: "`r Sys.Date()`"
 ---
 
+
+<style type="text/css">
+.main-container {
+  max-width: 1000px !important;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = F, message = F, cache = T)
 ```
@@ -105,22 +114,45 @@ fit_mmlt_flexible <- function(dataframe,
   mm <- do.call("mmlt", m)
   
   log_likelihood <- logLik(mm)
-  standard_errors <- sqrt(diag(vcov(mm)))
+
   
-  AIC <- 2*length(coef(mm)) - 2*as.numeric(log_likelihood)
-  BIC <- length(coef(mm))*log(nrow(dataframe)) - 2*as.numeric(log_likelihood)
+  n_par_total <- length(coef(mm))
+  n_par_marginal <- sum(sapply(coef(mm, type = "marginal"), length)) 
+  n_par_multivariate <- n_par_total - n_par_marginal
+  n_obs <- nrow(dataframe)
+
+  AIC <- 2*n_par_total - 2*as.numeric(log_likelihood)
+  BIC <- n_par_total*log(n_obs) - 2*as.numeric(log_likelihood)
+  
+  coef_corr <- tryCatch( # If we have stratified correlation matrices, this will fail, only useful for combined correlations
+    expr = {
+        as.array(coef(mm, type="Corr"))[,,1]
+    },
+    error = function(e){ 
+    })
+  
+  coef_lambda <- coef(mm)
+  standard_errors_lambda <- sqrt(diag(vcov(mm)))
+  p_values <- 2 * pnorm(-abs( coef_lambda/ standard_errors_lambda))
   
   return(
     list(
       object = mm,
-      coefficients = coef(mm),
-      standard_errors = standard_errors,
+      coef_corr =  coef_corr,
+      coef_lambda = coef_lambda,
+      standard_errors_lambda = standard_errors_lambda,
+      p_values = p_values,
       logLik = log_likelihood,
       AIC = AIC,
-      BIC = BIC
+      BIC = BIC,
+      n_par_total = n_par_total,
+      n_par_marginal = n_par_marginal,
+      n_par_multivariate = n_par_multivariate,
+      n_obs = n_obs
     )
   )
 }
+
 
 ```
 
@@ -153,10 +185,16 @@ m1 <- fit_mmlt_flexible(dataframe,
                         exclude_vars = c("Species"),
                         order = 6
                         )
-coef(m1)
+m1$coef_corr
+m1$coef_lambda
+m1$standard_errors_lambda
+m1$p_values
 m1$AIC
 m1$BIC
-
+m1$n_par_marginal
+m1$n_par_multivariate
+m1$n_par_total
+m1$n_obs
 ```
 
 Including Species as a discrete covariate:
@@ -168,9 +206,14 @@ m2 <- fit_mmlt_flexible(dataframe,
                         continuous_vars = c("Sepal.Length", "Sepal.Width",  "Petal.Length", "Petal.Width" ),
                         discrete_vars = c("Species")
 )
-coef(m2)
+
+m2$coef_corr
+m2$coef_lambda
+m2$p_values
 m2$AIC
 m2$BIC
+m2$n_par_marginal
+m2$n_par_multivariate
 
 ```
 
@@ -184,9 +227,14 @@ m3 <- fit_mmlt_flexible(dataframe,
                         continuous_vars = c("Sepal.Length", "Sepal.Width",  "Petal.Length", "Petal.Width" ),
                         discrete_vars = c()
 )
-coef(m3)
+
+m3$coef_corr
+m3$coef_lambda
+m3$p_values
 m3$AIC
 m3$BIC
+m3$n_par_marginal
+m3$n_par_multivariate
 
 ```
 
@@ -200,9 +248,14 @@ m4 <- fit_mmlt_flexible(dataframe,
                         discrete_vars = c(),
                         order=2
 )
-coef(m4)
+
+m4$coef_corr
+m4$coef_lambda
+m4$p_values
 m4$AIC
 m4$BIC
+m4$n_par_marginal
+m4$n_par_multivariate
 
 ```
 
@@ -215,9 +268,14 @@ m5 <- fit_mmlt_flexible(dataframe,
                         continuous_vars = c("Sepal.Length", "Sepal.Width",  "Petal.Length", "Petal.Width" ),
                         discrete_vars = c()
 )
-coef(m5)
+
+m5$coef_corr
+m5$coef_lambda
+m5$p_values
 m5$AIC
 m5$BIC
+m5$n_par_marginal
+m5$n_par_multivariate
 
 
 ```
@@ -232,9 +290,14 @@ m6 <- fit_mmlt_flexible(dataframe,
                         continuous_vars = c("Sepal.Length", "Sepal.Width",  "Petal.Length", "Petal.Width" ),
                         discrete_vars = c()
 )
-coef(m6)
+
+m6$coef_corr
+m6$coef_lambda
+m6$p_values
 m6$AIC
 m6$BIC
+m6$n_par_marginal
+m6$n_par_multivariate
 
 ```
 
@@ -248,9 +311,14 @@ m7 <- fit_mmlt_flexible(dataframe,
                         discrete_vars = c(),
                         exclude_vars = c("Species")
 )
-coef(m7)
+
+m7$coef_corr
+m7$coef_lambda
+m7$p_values
 m7$AIC
 m7$BIC
+m7$n_par_marginal
+m7$n_par_multivariate
 
 ```
 

@@ -355,6 +355,13 @@ display: none;
 </div>
 
 
+<style type="text/css">
+.main-container {
+max-width: 1000px !important;
+margin-left: auto;
+margin-right: auto;
+}
+</style>
 <div id="package-import" class="section level2">
 <h2>Package Import</h2>
 <pre class="r"><code>library(tram)
@@ -446,19 +453,41 @@ library(mvtnorm)</code></pre>
   mm &lt;- do.call(&quot;mmlt&quot;, m)
   
   log_likelihood &lt;- logLik(mm)
-  standard_errors &lt;- sqrt(diag(vcov(mm)))
+
   
-  AIC &lt;- 2*length(coef(mm)) - 2*as.numeric(log_likelihood)
-  BIC &lt;- length(coef(mm))*log(nrow(dataframe)) - 2*as.numeric(log_likelihood)
+  n_par_total &lt;- length(coef(mm))
+  n_par_marginal &lt;- sum(sapply(coef(mm, type = &quot;marginal&quot;), length)) 
+  n_par_multivariate &lt;- n_par_total - n_par_marginal
+  n_obs &lt;- nrow(dataframe)
+
+  AIC &lt;- 2*n_par_total - 2*as.numeric(log_likelihood)
+  BIC &lt;- n_par_total*log(n_obs) - 2*as.numeric(log_likelihood)
+  
+  coef_corr &lt;- tryCatch( # If we have stratified correlation matrices, this will fail, only useful for combined correlations
+    expr = {
+        as.array(coef(mm, type=&quot;Corr&quot;))[,,1]
+    },
+    error = function(e){ 
+    })
+  
+  coef_lambda &lt;- coef(mm)
+  standard_errors_lambda &lt;- sqrt(diag(vcov(mm)))
+  p_values &lt;- 2 * pnorm(-abs( coef_lambda/ standard_errors_lambda))
   
   return(
     list(
       object = mm,
-      coefficients = coef(mm),
-      standard_errors = standard_errors,
+      coef_corr =  coef_corr,
+      coef_lambda = coef_lambda,
+      standard_errors_lambda = standard_errors_lambda,
+      p_values = p_values,
       logLik = log_likelihood,
       AIC = AIC,
-      BIC = BIC
+      BIC = BIC,
+      n_par_total = n_par_total,
+      n_par_marginal = n_par_marginal,
+      n_par_multivariate = n_par_multivariate,
+      n_obs = n_obs
     )
   )
 }</code></pre>
@@ -489,7 +518,13 @@ ggpairs(dataframe)</code></pre>
                         exclude_vars = c(&quot;Species&quot;),
                         order = 6
                         )
-coef(m1)</code></pre>
+m1$coef_corr</code></pre>
+<pre><code>##                 R.Sepal.Length. R.Sepal.Width. R.Petal.Length. R.Petal.Width.
+## R.Sepal.Length.       1.0000000     -0.1297333       0.8772416      0.8244786
+## R.Sepal.Width.       -0.1297333      1.0000000      -0.4159243     -0.3793992
+## R.Petal.Length.       0.8772416     -0.4159243       1.0000000      0.9632123
+## R.Petal.Width.        0.8244786     -0.3793992       0.9632123      1.0000000</code></pre>
+<pre class="r"><code>m1$coef_lambda</code></pre>
 <pre><code>##        R.Sepal.Length..Bs1(R.Sepal.Length.) 
 ##                                 -1.31202411 
 ##        R.Sepal.Length..Bs2(R.Sepal.Length.) 
@@ -558,10 +593,156 @@ coef(m1)</code></pre>
 ##                                 -0.27413626 
 ##  R.Petal.Width..R.Petal.Length..(Intercept) 
 ##                                 -1.62248809</code></pre>
+<pre class="r"><code>m1$standard_errors_lambda</code></pre>
+<pre><code>##        R.Sepal.Length..Bs1(R.Sepal.Length.) 
+##                                  0.12123781 
+##        R.Sepal.Length..Bs2(R.Sepal.Length.) 
+##                                  0.15116771 
+##        R.Sepal.Length..Bs3(R.Sepal.Length.) 
+##                                  0.39008121 
+##        R.Sepal.Length..Bs4(R.Sepal.Length.) 
+##                                  0.53943403 
+##        R.Sepal.Length..Bs5(R.Sepal.Length.) 
+##                                  0.36521737 
+##        R.Sepal.Length..Bs6(R.Sepal.Length.) 
+##                                  0.13797082 
+##        R.Sepal.Length..Bs7(R.Sepal.Length.) 
+##                                  0.12073891 
+##          R.Sepal.Width..Bs1(R.Sepal.Width.) 
+##                                  0.12828365 
+##          R.Sepal.Width..Bs2(R.Sepal.Width.) 
+##                                  0.15480415 
+##          R.Sepal.Width..Bs3(R.Sepal.Width.) 
+##                                  0.45103100 
+##          R.Sepal.Width..Bs4(R.Sepal.Width.) 
+##                                  0.68544318 
+##          R.Sepal.Width..Bs5(R.Sepal.Width.) 
+##                                  0.51174295 
+##          R.Sepal.Width..Bs6(R.Sepal.Width.) 
+##                                  0.17255974 
+##          R.Sepal.Width..Bs7(R.Sepal.Width.) 
+##                                  0.14005854 
+##        R.Petal.Length..Bs1(R.Petal.Length.) 
+##                                  0.11971779 
+##        R.Petal.Length..Bs2(R.Petal.Length.) 
+##                                  0.17016320 
+##        R.Petal.Length..Bs3(R.Petal.Length.) 
+##                                  0.57914626 
+##        R.Petal.Length..Bs4(R.Petal.Length.) 
+##                                  0.61481060 
+##        R.Petal.Length..Bs5(R.Petal.Length.) 
+##                                  0.33951349 
+##        R.Petal.Length..Bs6(R.Petal.Length.) 
+##                                  0.12392655 
+##        R.Petal.Length..Bs7(R.Petal.Length.) 
+##                                  0.11411030 
+##          R.Petal.Width..Bs1(R.Petal.Width.) 
+##                                  0.12221051 
+##          R.Petal.Width..Bs2(R.Petal.Width.) 
+##                                  0.18282832 
+##          R.Petal.Width..Bs3(R.Petal.Width.) 
+##                                  0.50592699 
+##          R.Petal.Width..Bs4(R.Petal.Width.) 
+##                                  0.61596402 
+##          R.Petal.Width..Bs5(R.Petal.Width.) 
+##                                  0.35825983 
+##          R.Petal.Width..Bs6(R.Petal.Width.) 
+##                                  0.13191652 
+##          R.Petal.Width..Bs7(R.Petal.Width.) 
+##                                  0.11678181 
+##  R.Sepal.Width..R.Sepal.Length..(Intercept) 
+##                                  0.08430094 
+## R.Petal.Length..R.Sepal.Length..(Intercept) 
+##                                  0.21202854 
+##  R.Petal.Length..R.Sepal.Width..(Intercept) 
+##                                  0.11671874 
+##  R.Petal.Width..R.Sepal.Length..(Intercept) 
+##                                  0.22621685 
+##   R.Petal.Width..R.Sepal.Width..(Intercept) 
+##                                  0.13350060 
+##  R.Petal.Width..R.Petal.Length..(Intercept) 
+##                                  0.18804512</code></pre>
+<pre class="r"><code>m1$p_values</code></pre>
+<pre><code>##        R.Sepal.Length..Bs1(R.Sepal.Length.) 
+##                                2.710833e-27 
+##        R.Sepal.Length..Bs2(R.Sepal.Length.) 
+##                                5.936000e-06 
+##        R.Sepal.Length..Bs3(R.Sepal.Length.) 
+##                                2.622716e-01 
+##        R.Sepal.Length..Bs4(R.Sepal.Length.) 
+##                                8.649536e-01 
+##        R.Sepal.Length..Bs5(R.Sepal.Length.) 
+##                                1.280356e-01 
+##        R.Sepal.Length..Bs6(R.Sepal.Length.) 
+##                                1.127677e-09 
+##        R.Sepal.Length..Bs7(R.Sepal.Length.) 
+##                                4.159518e-24 
+##          R.Sepal.Width..Bs1(R.Sepal.Width.) 
+##                                5.734404e-23 
+##          R.Sepal.Width..Bs2(R.Sepal.Width.) 
+##                                6.723537e-08 
+##          R.Sepal.Width..Bs3(R.Sepal.Width.) 
+##                                6.390293e-02 
+##          R.Sepal.Width..Bs4(R.Sepal.Width.) 
+##                                3.964942e-01 
+##          R.Sepal.Width..Bs5(R.Sepal.Width.) 
+##                                2.557968e-01 
+##          R.Sepal.Width..Bs6(R.Sepal.Width.) 
+##                                4.984650e-09 
+##          R.Sepal.Width..Bs7(R.Sepal.Width.) 
+##                                3.699109e-25 
+##        R.Petal.Length..Bs1(R.Petal.Length.) 
+##                                1.896235e-29 
+##        R.Petal.Length..Bs2(R.Petal.Length.) 
+##                                1.825575e-02 
+##        R.Petal.Length..Bs3(R.Petal.Length.) 
+##                                4.879811e-01 
+##        R.Petal.Length..Bs4(R.Petal.Length.) 
+##                                5.135674e-01 
+##        R.Petal.Length..Bs5(R.Petal.Length.) 
+##                                5.333666e-01 
+##        R.Petal.Length..Bs6(R.Petal.Length.) 
+##                                7.663987e-12 
+##        R.Petal.Length..Bs7(R.Petal.Length.) 
+##                                6.255320e-26 
+##          R.Petal.Width..Bs1(R.Petal.Width.) 
+##                                7.982797e-29 
+##          R.Petal.Width..Bs2(R.Petal.Width.) 
+##                                2.288334e-02 
+##          R.Petal.Width..Bs3(R.Petal.Width.) 
+##                                4.109292e-01 
+##          R.Petal.Width..Bs4(R.Petal.Width.) 
+##                                4.994411e-01 
+##          R.Petal.Width..Bs5(R.Petal.Width.) 
+##                                1.595579e-02 
+##          R.Petal.Width..Bs6(R.Petal.Width.) 
+##                                5.953832e-11 
+##          R.Petal.Width..Bs7(R.Petal.Width.) 
+##                                1.153025e-26 
+##  R.Sepal.Width..R.Sepal.Length..(Intercept) 
+##                                1.206511e-01 
+## R.Petal.Length..R.Sepal.Length..(Intercept) 
+##                                1.813130e-26 
+##  R.Petal.Length..R.Sepal.Width..(Intercept) 
+##                                1.962478e-12 
+##  R.Petal.Width..R.Sepal.Length..(Intercept) 
+##                                5.756544e-03 
+##   R.Petal.Width..R.Sepal.Width..(Intercept) 
+##                                4.002936e-02 
+##  R.Petal.Width..R.Petal.Length..(Intercept) 
+##                                6.233328e-18</code></pre>
 <pre class="r"><code>m1$AIC</code></pre>
 <pre><code>## [1] 709.4514</code></pre>
 <pre class="r"><code>m1$BIC</code></pre>
 <pre><code>## [1] 811.813</code></pre>
+<pre class="r"><code>m1$n_par_marginal</code></pre>
+<pre><code>## [1] 28</code></pre>
+<pre class="r"><code>m1$n_par_multivariate</code></pre>
+<pre><code>## [1] 6</code></pre>
+<pre class="r"><code>m1$n_par_total</code></pre>
+<pre><code>## [1] 34</code></pre>
+<pre class="r"><code>m1$n_obs</code></pre>
+<pre><code>## [1] 150</code></pre>
 <p>Including Species as a discrete covariate:</p>
 <pre class="r"><code>m2 &lt;- fit_mmlt_flexible(dataframe,
                         marginal_formula=&quot;~ 1&quot;,
@@ -569,7 +750,27 @@ coef(m1)</code></pre>
                         continuous_vars = c(&quot;Sepal.Length&quot;, &quot;Sepal.Width&quot;,  &quot;Petal.Length&quot;, &quot;Petal.Width&quot; ),
                         discrete_vars = c(&quot;Species&quot;)
 )
-coef(m2)</code></pre>
+
+m2$coef_corr</code></pre>
+<pre><code>##                                  R.Sepal.Length. R.Sepal.Width. R.Petal.Length.
+## R.Sepal.Length.                        1.0000000     -0.1302060       0.8772081
+## R.Sepal.Width.                        -0.1302060      1.0000000      -0.4163369
+## R.Petal.Length.                        0.8772081     -0.4163369       1.0000000
+## R.Petal.Width.                         0.8243369     -0.3796205       0.9630568
+## R.Species..as.R.interval...TRUE.       0.8070711     -0.5043486       0.9811755
+##                                  R.Petal.Width.
+## R.Sepal.Length.                       0.8243369
+## R.Sepal.Width.                       -0.3796205
+## R.Petal.Length.                       0.9630568
+## R.Petal.Width.                        1.0000000
+## R.Species..as.R.interval...TRUE.      0.9813727
+##                                  R.Species..as.R.interval...TRUE.
+## R.Sepal.Length.                                         0.8070711
+## R.Sepal.Width.                                         -0.5043486
+## R.Petal.Length.                                         0.9811755
+## R.Petal.Width.                                          0.9813727
+## R.Species..as.R.interval...TRUE.                        1.0000000</code></pre>
+<pre class="r"><code>m2$coef_lambda</code></pre>
 <pre><code>##                                        R.Sepal.Length..Bs1(R.Sepal.Length.) 
 ##                                                                  -1.3124354 
 ##                                        R.Sepal.Length..Bs2(R.Sepal.Length.) 
@@ -650,10 +851,95 @@ coef(m2)</code></pre>
 ##                                                                  -2.9337506 
 ##                 R.Species..as.R.interval...TRUE..R.Petal.Width..(Intercept) 
 ##                                                                  -2.0560642</code></pre>
+<pre class="r"><code>m2$p_values</code></pre>
+<pre><code>##                                        R.Sepal.Length..Bs1(R.Sepal.Length.) 
+##                                                                2.605175e-27 
+##                                        R.Sepal.Length..Bs2(R.Sepal.Length.) 
+##                                                                6.013721e-06 
+##                                        R.Sepal.Length..Bs3(R.Sepal.Length.) 
+##                                                                2.583861e-01 
+##                                        R.Sepal.Length..Bs4(R.Sepal.Length.) 
+##                                                                8.333985e-01 
+##                                        R.Sepal.Length..Bs5(R.Sepal.Length.) 
+##                                                                1.432188e-01 
+##                                        R.Sepal.Length..Bs6(R.Sepal.Length.) 
+##                                                                1.057164e-09 
+##                                        R.Sepal.Length..Bs7(R.Sepal.Length.) 
+##                                                                3.827352e-24 
+##                                          R.Sepal.Width..Bs1(R.Sepal.Width.) 
+##                                                                6.936698e-23 
+##                                          R.Sepal.Width..Bs2(R.Sepal.Width.) 
+##                                                                7.420134e-08 
+##                                          R.Sepal.Width..Bs3(R.Sepal.Width.) 
+##                                                                6.381639e-02 
+##                                          R.Sepal.Width..Bs4(R.Sepal.Width.) 
+##                                                                4.281179e-01 
+##                                          R.Sepal.Width..Bs5(R.Sepal.Width.) 
+##                                                                2.251819e-01 
+##                                          R.Sepal.Width..Bs6(R.Sepal.Width.) 
+##                                                                5.172014e-09 
+##                                          R.Sepal.Width..Bs7(R.Sepal.Width.) 
+##                                                                3.223091e-25 
+##                                        R.Petal.Length..Bs1(R.Petal.Length.) 
+##                                                                1.831750e-29 
+##                                        R.Petal.Length..Bs2(R.Petal.Length.) 
+##                                                                1.889591e-02 
+##                                        R.Petal.Length..Bs3(R.Petal.Length.) 
+##                                                                4.886562e-01 
+##                                        R.Petal.Length..Bs4(R.Petal.Length.) 
+##                                                                5.130081e-01 
+##                                        R.Petal.Length..Bs5(R.Petal.Length.) 
+##                                                                5.318828e-01 
+##                                        R.Petal.Length..Bs6(R.Petal.Length.) 
+##                                                                8.372190e-12 
+##                                        R.Petal.Length..Bs7(R.Petal.Length.) 
+##                                                                5.317723e-26 
+##                                          R.Petal.Width..Bs1(R.Petal.Width.) 
+##                                                                7.739390e-29 
+##                                          R.Petal.Width..Bs2(R.Petal.Width.) 
+##                                                                2.356819e-02 
+##                                          R.Petal.Width..Bs3(R.Petal.Width.) 
+##                                                                4.130386e-01 
+##                                          R.Petal.Width..Bs4(R.Petal.Width.) 
+##                                                                5.021712e-01 
+##                                          R.Petal.Width..Bs5(R.Petal.Width.) 
+##                                                                1.648613e-02 
+##                                          R.Petal.Width..Bs6(R.Petal.Width.) 
+##                                                                6.310258e-11 
+##                                          R.Petal.Width..Bs7(R.Petal.Width.) 
+##                                                                8.801378e-27 
+##     R.Species..as.R.interval...TRUE..R.Species..as.R.interval...TRUE.setosa 
+##                                                                9.995225e-01 
+## R.Species..as.R.interval...TRUE..R.Species..as.R.interval...TRUE.versicolor 
+##                                                                1.808335e-12 
+##                                  R.Sepal.Width..R.Sepal.Length..(Intercept) 
+##                                                                1.191786e-01 
+##                                 R.Petal.Length..R.Sepal.Length..(Intercept) 
+##                                                                1.750427e-26 
+##                                  R.Petal.Length..R.Sepal.Width..(Intercept) 
+##                                                                1.977050e-12 
+##                                  R.Petal.Width..R.Sepal.Length..(Intercept) 
+##                                                                5.883059e-03 
+##                                   R.Petal.Width..R.Sepal.Width..(Intercept) 
+##                                                                4.021965e-02 
+##                                  R.Petal.Width..R.Petal.Length..(Intercept) 
+##                                                                6.274221e-18 
+##                R.Species..as.R.interval...TRUE..R.Sepal.Length..(Intercept) 
+##                                                                2.907384e-01 
+##                 R.Species..as.R.interval...TRUE..R.Sepal.Width..(Intercept) 
+##                                                                1.438949e-01 
+##                R.Species..as.R.interval...TRUE..R.Petal.Length..(Intercept) 
+##                                                                3.193119e-02 
+##                 R.Species..as.R.interval...TRUE..R.Petal.Width..(Intercept) 
+##                                                                5.750493e-02</code></pre>
 <pre class="r"><code>m2$AIC</code></pre>
 <pre><code>## [1] 733.3813</code></pre>
 <pre class="r"><code>m2$BIC</code></pre>
 <pre><code>## [1] 853.8067</code></pre>
+<pre class="r"><code>m2$n_par_marginal</code></pre>
+<pre><code>## [1] 30</code></pre>
+<pre class="r"><code>m2$n_par_multivariate</code></pre>
+<pre><code>## [1] 10</code></pre>
 <p>Calculating a correlation matrix per species:</p>
 <pre class="r"><code>m3 &lt;- fit_mmlt_flexible(dataframe,
                         marginal_formula=&quot;~ 1&quot;,
@@ -661,7 +947,10 @@ coef(m2)</code></pre>
                         continuous_vars = c(&quot;Sepal.Length&quot;, &quot;Sepal.Width&quot;,  &quot;Petal.Length&quot;, &quot;Petal.Width&quot; ),
                         discrete_vars = c()
 )
-coef(m3)</code></pre>
+
+m3$coef_corr</code></pre>
+<pre><code>## NULL</code></pre>
+<pre class="r"><code>m3$coef_lambda</code></pre>
 <pre><code>##              R.Sepal.Length..Bs1(R.Sepal.Length.) 
 ##                                        -1.4340931 
 ##              R.Sepal.Length..Bs2(R.Sepal.Length.) 
@@ -754,10 +1043,107 @@ coef(m3)</code></pre>
 ##                                        -1.7831302 
 ##   R.Petal.Width..R.Petal.Length..Speciesvirginica 
 ##                                        -0.0623827</code></pre>
+<pre class="r"><code>m3$p_values</code></pre>
+<pre><code>##              R.Sepal.Length..Bs1(R.Sepal.Length.) 
+##                                      9.366327e-37 
+##              R.Sepal.Length..Bs2(R.Sepal.Length.) 
+##                                      1.511496e-07 
+##              R.Sepal.Length..Bs3(R.Sepal.Length.) 
+##                                      2.341366e-01 
+##              R.Sepal.Length..Bs4(R.Sepal.Length.) 
+##                                      7.319120e-01 
+##              R.Sepal.Length..Bs5(R.Sepal.Length.) 
+##                                      2.669443e-01 
+##              R.Sepal.Length..Bs6(R.Sepal.Length.) 
+##                                      3.762569e-04 
+##              R.Sepal.Length..Bs7(R.Sepal.Length.) 
+##                                      1.453230e-14 
+##                R.Sepal.Width..Bs1(R.Sepal.Width.) 
+##                                      6.392813e-06 
+##                R.Sepal.Width..Bs2(R.Sepal.Width.) 
+##                                      6.685421e-02 
+##                R.Sepal.Width..Bs3(R.Sepal.Width.) 
+##                                      4.895945e-01 
+##                R.Sepal.Width..Bs4(R.Sepal.Width.) 
+##                                      6.336137e-02 
+##                R.Sepal.Width..Bs5(R.Sepal.Width.) 
+##                                      1.083905e-02 
+##                R.Sepal.Width..Bs6(R.Sepal.Width.) 
+##                                      5.972409e-23 
+##                R.Sepal.Width..Bs7(R.Sepal.Width.) 
+##                                      5.106763e-44 
+##              R.Petal.Length..Bs1(R.Petal.Length.) 
+##                                      6.891831e-44 
+##              R.Petal.Length..Bs2(R.Petal.Length.) 
+##                                      1.714205e-04 
+##              R.Petal.Length..Bs3(R.Petal.Length.) 
+##                                      2.304152e-01 
+##              R.Petal.Length..Bs4(R.Petal.Length.) 
+##                                      3.368985e-01 
+##              R.Petal.Length..Bs5(R.Petal.Length.) 
+##                                      3.330015e-01 
+##              R.Petal.Length..Bs6(R.Petal.Length.) 
+##                                      5.614112e-03 
+##              R.Petal.Length..Bs7(R.Petal.Length.) 
+##                                      3.262913e-19 
+##                R.Petal.Width..Bs1(R.Petal.Width.) 
+##                                      3.432130e-43 
+##                R.Petal.Width..Bs2(R.Petal.Width.) 
+##                                      4.063948e-05 
+##                R.Petal.Width..Bs3(R.Petal.Width.) 
+##                                      1.651749e-01 
+##                R.Petal.Width..Bs4(R.Petal.Width.) 
+##                                      2.902954e-01 
+##                R.Petal.Width..Bs5(R.Petal.Width.) 
+##                                      3.562709e-01 
+##                R.Petal.Width..Bs6(R.Petal.Width.) 
+##                                      1.202978e-02 
+##                R.Petal.Width..Bs7(R.Petal.Width.) 
+##                                      4.169082e-18 
+##        R.Sepal.Width..R.Sepal.Length..(Intercept) 
+##                                      1.684478e-04 
+##  R.Sepal.Width..R.Sepal.Length..Speciesversicolor 
+##                                      1.321003e-13 
+##   R.Sepal.Width..R.Sepal.Length..Speciesvirginica 
+##                                      5.706451e-07 
+##       R.Petal.Length..R.Sepal.Length..(Intercept) 
+##                                      1.594855e-09 
+## R.Petal.Length..R.Sepal.Length..Speciesversicolor 
+##                                      1.485438e-01 
+##  R.Petal.Length..R.Sepal.Length..Speciesvirginica 
+##                                      4.841621e-01 
+##        R.Petal.Length..R.Sepal.Width..(Intercept) 
+##                                      3.362710e-09 
+##  R.Petal.Length..R.Sepal.Width..Speciesversicolor 
+##                                      6.488534e-09 
+##   R.Petal.Length..R.Sepal.Width..Speciesvirginica 
+##                                      7.686998e-06 
+##        R.Petal.Width..R.Sepal.Length..(Intercept) 
+##                                      8.135360e-02 
+##  R.Petal.Width..R.Sepal.Length..Speciesversicolor 
+##                                      1.386678e-03 
+##   R.Petal.Width..R.Sepal.Length..Speciesvirginica 
+##                                      1.304400e-03 
+##         R.Petal.Width..R.Sepal.Width..(Intercept) 
+##                                      1.458565e-01 
+##   R.Petal.Width..R.Sepal.Width..Speciesversicolor 
+##                                      2.368282e-03 
+##    R.Petal.Width..R.Sepal.Width..Speciesvirginica 
+##                                      3.676323e-03 
+##        R.Petal.Width..R.Petal.Length..(Intercept) 
+##                                      4.422726e-05 
+##  R.Petal.Width..R.Petal.Length..Speciesversicolor 
+##                                      6.061190e-03 
+##   R.Petal.Width..R.Petal.Length..Speciesvirginica 
+##                                      8.573127e-01</code></pre>
 <pre class="r"><code>m3$AIC</code></pre>
 <pre><code>## [1] 604.2948</code></pre>
 <pre class="r"><code>m3$BIC</code></pre>
 <pre><code>## [1] 742.784</code></pre>
+<pre class="r"><code>m3$n_par_marginal</code></pre>
+<pre><code>## [1] 28</code></pre>
+<pre class="r"><code>m3$n_par_multivariate</code></pre>
+<pre><code>## [1] 18</code></pre>
 <p>Correlation matrix per species, but the transformation is limited to
 a polynomial to order of 2:</p>
 <pre class="r"><code>m4 &lt;- fit_mmlt_flexible(dataframe,
@@ -767,7 +1153,10 @@ a polynomial to order of 2:</p>
                         discrete_vars = c(),
                         order=2
 )
-coef(m4)</code></pre>
+
+m4$coef_corr</code></pre>
+<pre><code>## NULL</code></pre>
+<pre class="r"><code>m4$coef_lambda</code></pre>
 <pre><code>##              R.Sepal.Length..Bs1(R.Sepal.Length.) 
 ##                                       -1.40239612 
 ##              R.Sepal.Length..Bs2(R.Sepal.Length.) 
@@ -828,10 +1217,75 @@ coef(m4)</code></pre>
 ##                                       -0.70530413 
 ##   R.Petal.Width..R.Petal.Length..Speciesvirginica 
 ##                                        0.50391264</code></pre>
+<pre class="r"><code>m4$p_values</code></pre>
+<pre><code>##              R.Sepal.Length..Bs1(R.Sepal.Length.) 
+##                                      4.470864e-36 
+##              R.Sepal.Length..Bs2(R.Sepal.Length.) 
+##                                      1.378606e-01 
+##              R.Sepal.Length..Bs3(R.Sepal.Length.) 
+##                                      4.022714e-23 
+##                R.Sepal.Width..Bs1(R.Sepal.Width.) 
+##                                      1.772759e-04 
+##                R.Sepal.Width..Bs2(R.Sepal.Width.) 
+##                                      4.102498e-08 
+##                R.Sepal.Width..Bs3(R.Sepal.Width.) 
+##                                      8.680534e-65 
+##              R.Petal.Length..Bs1(R.Petal.Length.) 
+##                                      2.487485e-50 
+##              R.Petal.Length..Bs2(R.Petal.Length.) 
+##                                      4.429793e-06 
+##              R.Petal.Length..Bs3(R.Petal.Length.) 
+##                                      9.508908e-23 
+##                R.Petal.Width..Bs1(R.Petal.Width.) 
+##                                      7.568116e-50 
+##                R.Petal.Width..Bs2(R.Petal.Width.) 
+##                                      4.311332e-01 
+##                R.Petal.Width..Bs3(R.Petal.Width.) 
+##                                      5.387619e-23 
+##        R.Sepal.Width..R.Sepal.Length..(Intercept) 
+##                                      5.585024e-04 
+##  R.Sepal.Width..R.Sepal.Length..Speciesversicolor 
+##                                      6.027502e-14 
+##   R.Sepal.Width..R.Sepal.Length..Speciesvirginica 
+##                                      2.434121e-08 
+##       R.Petal.Length..R.Sepal.Length..(Intercept) 
+##                                      2.966698e-12 
+## R.Petal.Length..R.Sepal.Length..Speciesversicolor 
+##                                      3.998475e-02 
+##  R.Petal.Length..R.Sepal.Length..Speciesvirginica 
+##                                      4.564300e-01 
+##        R.Petal.Length..R.Sepal.Width..(Intercept) 
+##                                      2.452806e-11 
+##  R.Petal.Length..R.Sepal.Width..Speciesversicolor 
+##                                      3.579948e-11 
+##   R.Petal.Length..R.Sepal.Width..Speciesvirginica 
+##                                      2.836317e-08 
+##        R.Petal.Width..R.Sepal.Length..(Intercept) 
+##                                      3.958163e-01 
+##  R.Petal.Width..R.Sepal.Length..Speciesversicolor 
+##                                      1.087527e-02 
+##   R.Petal.Width..R.Sepal.Length..Speciesvirginica 
+##                                      1.189269e-02 
+##         R.Petal.Width..R.Sepal.Width..(Intercept) 
+##                                      9.317694e-01 
+##   R.Petal.Width..R.Sepal.Width..Speciesversicolor 
+##                                      1.061688e-01 
+##    R.Petal.Width..R.Sepal.Width..Speciesvirginica 
+##                                      1.167770e-01 
+##        R.Petal.Width..R.Petal.Length..(Intercept) 
+##                                      5.957391e-08 
+##  R.Petal.Width..R.Petal.Length..Speciesversicolor 
+##                                      1.756688e-01 
+##   R.Petal.Width..R.Petal.Length..Speciesvirginica 
+##                                      2.374611e-01</code></pre>
 <pre class="r"><code>m4$AIC</code></pre>
 <pre><code>## [1] 679.0818</code></pre>
 <pre class="r"><code>m4$BIC</code></pre>
 <pre><code>## [1] 769.4009</code></pre>
+<pre class="r"><code>m4$n_par_marginal</code></pre>
+<pre><code>## [1] 12</code></pre>
+<pre class="r"><code>m4$n_par_multivariate</code></pre>
+<pre><code>## [1] 18</code></pre>
 <p>Including a marginal species covariate, and a correlation matrix per
 species:</p>
 <pre class="r"><code>m5 &lt;- fit_mmlt_flexible(dataframe,
@@ -840,7 +1294,10 @@ species:</p>
                         continuous_vars = c(&quot;Sepal.Length&quot;, &quot;Sepal.Width&quot;,  &quot;Petal.Length&quot;, &quot;Petal.Width&quot; ),
                         discrete_vars = c()
 )
-coef(m5)</code></pre>
+
+m5$coef_corr</code></pre>
+<pre><code>## NULL</code></pre>
+<pre class="r"><code>m5$coef_lambda</code></pre>
 <pre><code>##              R.Sepal.Length..Bs1(R.Sepal.Length.) 
 ##                                       -0.53951898 
 ##              R.Sepal.Length..Bs2(R.Sepal.Length.) 
@@ -949,10 +1406,123 @@ coef(m5)</code></pre>
 ##                                       -0.63785691 
 ##   R.Petal.Width..R.Petal.Length..Speciesvirginica 
 ##                                        0.07007441</code></pre>
+<pre class="r"><code>m5$p_values</code></pre>
+<pre><code>##              R.Sepal.Length..Bs1(R.Sepal.Length.) 
+##                                      5.875220e-04 
+##              R.Sepal.Length..Bs2(R.Sepal.Length.) 
+##                                      2.091793e-02 
+##              R.Sepal.Length..Bs3(R.Sepal.Length.) 
+##                                      3.490280e-02 
+##              R.Sepal.Length..Bs4(R.Sepal.Length.) 
+##                                      2.499213e-02 
+##              R.Sepal.Length..Bs5(R.Sepal.Length.) 
+##                                      4.838236e-06 
+##              R.Sepal.Length..Bs6(R.Sepal.Length.) 
+##                                      2.119361e-26 
+##              R.Sepal.Length..Bs7(R.Sepal.Length.) 
+##                                      1.171766e-40 
+##                 R.Sepal.Length..Speciesversicolor 
+##                                      2.824536e-17 
+##                  R.Sepal.Length..Speciesvirginica 
+##                                      4.318998e-30 
+##                R.Sepal.Width..Bs1(R.Sepal.Width.) 
+##                                      2.215112e-34 
+##                R.Sepal.Width..Bs2(R.Sepal.Width.) 
+##                                      1.926536e-19 
+##                R.Sepal.Width..Bs3(R.Sepal.Width.) 
+##                                      1.066618e-04 
+##                R.Sepal.Width..Bs4(R.Sepal.Width.) 
+##                                      5.962708e-01 
+##                R.Sepal.Width..Bs5(R.Sepal.Width.) 
+##                                      8.164732e-01 
+##                R.Sepal.Width..Bs6(R.Sepal.Width.) 
+##                                      1.964250e-01 
+##                R.Sepal.Width..Bs7(R.Sepal.Width.) 
+##                                      1.238433e-05 
+##                  R.Sepal.Width..Speciesversicolor 
+##                                      1.211710e-17 
+##                   R.Sepal.Width..Speciesvirginica 
+##                                      3.157762e-10 
+##              R.Petal.Length..Bs1(R.Petal.Length.) 
+##                                      3.133971e-02 
+##              R.Petal.Length..Bs2(R.Petal.Length.) 
+##                                      2.732913e-12 
+##              R.Petal.Length..Bs3(R.Petal.Length.) 
+##                                      2.177183e-01 
+##              R.Petal.Length..Bs4(R.Petal.Length.) 
+##                                      5.063348e-02 
+##              R.Petal.Length..Bs5(R.Petal.Length.) 
+##                                      3.118017e-04 
+##              R.Petal.Length..Bs6(R.Petal.Length.) 
+##                                      1.974024e-08 
+##              R.Petal.Length..Bs7(R.Petal.Length.) 
+##                                      1.138240e-10 
+##                 R.Petal.Length..Speciesversicolor 
+##                                      7.445541e-06 
+##                  R.Petal.Length..Speciesvirginica 
+##                                      8.816510e-10 
+##                R.Petal.Width..Bs1(R.Petal.Width.) 
+##                                      5.628747e-03 
+##                R.Petal.Width..Bs2(R.Petal.Width.) 
+##                                      1.842269e-10 
+##                R.Petal.Width..Bs3(R.Petal.Width.) 
+##                                      1.019633e-01 
+##                R.Petal.Width..Bs4(R.Petal.Width.) 
+##                                      3.095083e-02 
+##                R.Petal.Width..Bs5(R.Petal.Width.) 
+##                                      2.380093e-09 
+##                R.Petal.Width..Bs6(R.Petal.Width.) 
+##                                      2.981814e-16 
+##                R.Petal.Width..Bs7(R.Petal.Width.) 
+##                                      4.753925e-23 
+##                  R.Petal.Width..Speciesversicolor 
+##                                      2.189630e-11 
+##                   R.Petal.Width..Speciesvirginica 
+##                                      4.431918e-21 
+##        R.Sepal.Width..R.Sepal.Length..(Intercept) 
+##                                      1.422333e-08 
+##  R.Sepal.Width..R.Sepal.Length..Speciesversicolor 
+##                                      1.196426e-01 
+##   R.Sepal.Width..R.Sepal.Length..Speciesvirginica 
+##                                      7.778434e-03 
+##       R.Petal.Length..R.Sepal.Length..(Intercept) 
+##                                      6.886766e-02 
+## R.Petal.Length..R.Sepal.Length..Speciesversicolor 
+##                                      2.664643e-02 
+##  R.Petal.Length..R.Sepal.Length..Speciesvirginica 
+##                                      5.971770e-04 
+##        R.Petal.Length..R.Sepal.Width..(Intercept) 
+##                                      6.677708e-01 
+##  R.Petal.Length..R.Sepal.Width..Speciesversicolor 
+##                                      9.509192e-02 
+##   R.Petal.Length..R.Sepal.Width..Speciesvirginica 
+##                                      6.037283e-01 
+##        R.Petal.Width..R.Sepal.Length..(Intercept) 
+##                                      4.300187e-01 
+##  R.Petal.Width..R.Sepal.Length..Speciesversicolor 
+##                                      6.950712e-02 
+##   R.Petal.Width..R.Sepal.Length..Speciesvirginica 
+##                                      2.261922e-01 
+##         R.Petal.Width..R.Sepal.Width..(Intercept) 
+##                                      6.983106e-01 
+##   R.Petal.Width..R.Sepal.Width..Speciesversicolor 
+##                                      9.984986e-03 
+##    R.Petal.Width..R.Sepal.Width..Speciesvirginica 
+##                                      1.271099e-02 
+##        R.Petal.Width..R.Petal.Length..(Intercept) 
+##                                      7.650218e-02 
+##  R.Petal.Width..R.Petal.Length..Speciesversicolor 
+##                                      8.167537e-03 
+##   R.Petal.Width..R.Petal.Length..Speciesvirginica 
+##                                      7.327226e-01</code></pre>
 <pre class="r"><code>m5$AIC</code></pre>
 <pre><code>## [1] 132.7454</code></pre>
 <pre class="r"><code>m5$BIC</code></pre>
 <pre><code>## [1] 295.3197</code></pre>
+<pre class="r"><code>m5$n_par_marginal</code></pre>
+<pre><code>## [1] 36</code></pre>
+<pre class="r"><code>m5$n_par_multivariate</code></pre>
+<pre><code>## [1] 18</code></pre>
 <p>Adding a scale term to the marginal models to account for different
 dispersions:</p>
 <pre class="r"><code>m6 &lt;- fit_mmlt_flexible(dataframe,
@@ -961,7 +1531,21 @@ dispersions:</p>
                         continuous_vars = c(&quot;Sepal.Length&quot;, &quot;Sepal.Width&quot;,  &quot;Petal.Length&quot;, &quot;Petal.Width&quot; ),
                         discrete_vars = c()
 )
-coef(m6)</code></pre>
+
+m6$coef_corr</code></pre>
+<pre><code>##                 R.Sepal.Length. R.Sepal.Width. R.Petal.Length. R.Petal.Width.
+## R.Sepal.Length.    1.000000e+00   5.586621e-01    6.949418e-01   3.946741e-01
+## R.Sepal.Width.     5.586621e-01   1.000000e+00    4.064336e-01   5.106558e-01
+## R.Petal.Length.    6.949418e-01   4.064336e-01    1.000000e+00   5.298890e-01
+## R.Petal.Width.     3.946741e-01   5.106558e-01    5.298890e-01   1.000000e+00
+## R.Species.        -1.459050e-07  -8.827063e-08   -1.537520e-07  -6.267832e-08
+##                    R.Species.
+## R.Sepal.Length. -1.459050e-07
+## R.Sepal.Width.  -8.827063e-08
+## R.Petal.Length. -1.537520e-07
+## R.Petal.Width.  -6.267832e-08
+## R.Species.       1.000000e+00</code></pre>
+<pre class="r"><code>m6$coef_lambda</code></pre>
 <pre><code>##        R.Sepal.Length..Bs1(R.Sepal.Length.) 
 ##                               -4.613024e-01 
 ##        R.Sepal.Length..Bs2(R.Sepal.Length.) 
@@ -1082,10 +1666,135 @@ coef(m6)</code></pre>
 ##                                8.564488e-08 
 ##       R.Species..R.Petal.Width..(Intercept) 
 ##                               -2.936699e-08</code></pre>
+<pre class="r"><code>m6$p_values</code></pre>
+<pre><code>##        R.Sepal.Length..Bs1(R.Sepal.Length.) 
+##                                3.675500e-03 
+##        R.Sepal.Length..Bs2(R.Sepal.Length.) 
+##                                1.462766e-02 
+##        R.Sepal.Length..Bs3(R.Sepal.Length.) 
+##                                1.120508e-01 
+##        R.Sepal.Length..Bs4(R.Sepal.Length.) 
+##                                2.742911e-02 
+##        R.Sepal.Length..Bs5(R.Sepal.Length.) 
+##                                8.112194e-04 
+##        R.Sepal.Length..Bs6(R.Sepal.Length.) 
+##                                7.674376e-08 
+##        R.Sepal.Length..Bs7(R.Sepal.Length.) 
+##                                7.135380e-08 
+##           R.Sepal.Length..Speciesversicolor 
+##                                5.417489e-11 
+##            R.Sepal.Length..Speciesvirginica 
+##                                5.346235e-13 
+##       R.Sepal.Length..scl_Speciesversicolor 
+##                                5.965373e-01 
+##        R.Sepal.Length..scl_Speciesvirginica 
+##                                9.774554e-01 
+##          R.Sepal.Width..Bs1(R.Sepal.Width.) 
+##                                1.223456e-13 
+##          R.Sepal.Width..Bs2(R.Sepal.Width.) 
+##                                3.838429e-11 
+##          R.Sepal.Width..Bs3(R.Sepal.Width.) 
+##                                2.202707e-04 
+##          R.Sepal.Width..Bs4(R.Sepal.Width.) 
+##                                5.285954e-01 
+##          R.Sepal.Width..Bs5(R.Sepal.Width.) 
+##                                7.414220e-01 
+##          R.Sepal.Width..Bs6(R.Sepal.Width.) 
+##                                2.564873e-01 
+##          R.Sepal.Width..Bs7(R.Sepal.Width.) 
+##                                4.937389e-05 
+##            R.Sepal.Width..Speciesversicolor 
+##                                2.906448e-11 
+##             R.Sepal.Width..Speciesvirginica 
+##                                3.538179e-08 
+##        R.Sepal.Width..scl_Speciesversicolor 
+##                                1.727314e-01 
+##         R.Sepal.Width..scl_Speciesvirginica 
+##                                5.897413e-01 
+##        R.Petal.Length..Bs1(R.Petal.Length.) 
+##                                8.110254e-02 
+##        R.Petal.Length..Bs2(R.Petal.Length.) 
+##                                3.345408e-12 
+##        R.Petal.Length..Bs3(R.Petal.Length.) 
+##                                1.541234e-01 
+##        R.Petal.Length..Bs4(R.Petal.Length.) 
+##                                6.142901e-04 
+##        R.Petal.Length..Bs5(R.Petal.Length.) 
+##                                1.068309e-02 
+##        R.Petal.Length..Bs6(R.Petal.Length.) 
+##                                         NaN 
+##        R.Petal.Length..Bs7(R.Petal.Length.) 
+##                                         NaN 
+##           R.Petal.Length..Speciesversicolor 
+##                                         NaN 
+##            R.Petal.Length..Speciesvirginica 
+##                                         NaN 
+##       R.Petal.Length..scl_Speciesversicolor 
+##                                         NaN 
+##        R.Petal.Length..scl_Speciesvirginica 
+##                                         NaN 
+##          R.Petal.Width..Bs1(R.Petal.Width.) 
+##                                1.465963e-02 
+##          R.Petal.Width..Bs2(R.Petal.Width.) 
+##                                1.399248e-11 
+##          R.Petal.Width..Bs3(R.Petal.Width.) 
+##                                2.254505e-02 
+##          R.Petal.Width..Bs4(R.Petal.Width.) 
+##                                         NaN 
+##          R.Petal.Width..Bs5(R.Petal.Width.) 
+##                                5.752932e-06 
+##          R.Petal.Width..Bs6(R.Petal.Width.) 
+##                                         NaN 
+##          R.Petal.Width..Bs7(R.Petal.Width.) 
+##                                         NaN 
+##            R.Petal.Width..Speciesversicolor 
+##                                         NaN 
+##             R.Petal.Width..Speciesvirginica 
+##                                         NaN 
+##        R.Petal.Width..scl_Speciesversicolor 
+##                                         NaN 
+##         R.Petal.Width..scl_Speciesvirginica 
+##                                         NaN 
+##                 R.Species..R.Species.setosa 
+##                                9.954425e-01 
+##             R.Species..R.Species.versicolor 
+##                                         NaN 
+##                R.Species..Speciesversicolor 
+##                                9.931669e-01 
+##                 R.Species..Speciesvirginica 
+##                                9.996620e-01 
+##            R.Species..scl_Speciesversicolor 
+##                                         NaN 
+##             R.Species..scl_Speciesvirginica 
+##                                9.998466e-01 
+##  R.Sepal.Width..R.Sepal.Length..(Intercept) 
+##                                1.968100e-11 
+## R.Petal.Length..R.Sepal.Length..(Intercept) 
+##                                4.739625e-12 
+##  R.Petal.Length..R.Sepal.Width..(Intercept) 
+##                                7.198981e-01 
+##  R.Petal.Width..R.Sepal.Length..(Intercept) 
+##                                1.033175e-01 
+##   R.Petal.Width..R.Sepal.Width..(Intercept) 
+##                                1.944932e-06 
+##  R.Petal.Width..R.Petal.Length..(Intercept) 
+##                                3.384778e-06 
+##      R.Species..R.Sepal.Length..(Intercept) 
+##                                1.000000e+00 
+##       R.Species..R.Sepal.Width..(Intercept) 
+##                                1.000000e+00 
+##      R.Species..R.Petal.Length..(Intercept) 
+##                                1.000000e+00 
+##       R.Species..R.Petal.Width..(Intercept) 
+##                                1.000000e+00</code></pre>
 <pre class="r"><code>m6$AIC</code></pre>
 <pre><code>## [1] 201.6944</code></pre>
 <pre class="r"><code>m6$BIC</code></pre>
 <pre><code>## [1] 382.3325</code></pre>
+<pre class="r"><code>m6$n_par_marginal</code></pre>
+<pre><code>## [1] 50</code></pre>
+<pre class="r"><code>m6$n_par_multivariate</code></pre>
+<pre><code>## [1] 10</code></pre>
 <p>Adding a conditional baseline transformation that depends on the
 species as well as a correlation matrix per species:</p>
 <pre class="r"><code>m7 &lt;- fit_mmlt_flexible(dataframe,
@@ -1095,7 +1804,10 @@ species as well as a correlation matrix per species:</p>
                         discrete_vars = c(),
                         exclude_vars = c(&quot;Species&quot;)
 )
-coef(m7)</code></pre>
+
+m7$coef_corr</code></pre>
+<pre><code>## NULL</code></pre>
+<pre class="r"><code>m7$coef_lambda</code></pre>
 <pre><code>##       R.Sepal.Length..Bs1(R.Sepal.Length.):(Intercept) 
 ##                                            -0.60750841 
 ##       R.Sepal.Length..Bs2(R.Sepal.Length.):(Intercept) 
@@ -1300,10 +2012,219 @@ coef(m7)</code></pre>
 ##                                            -0.66115611 
 ##        R.Petal.Width..R.Petal.Length..Speciesvirginica 
 ##                                             0.04304339</code></pre>
+<pre class="r"><code>m7$p_values</code></pre>
+<pre><code>##       R.Sepal.Length..Bs1(R.Sepal.Length.):(Intercept) 
+##                                           2.190971e-04 
+##       R.Sepal.Length..Bs2(R.Sepal.Length.):(Intercept) 
+##                                           1.149845e-01 
+##       R.Sepal.Length..Bs3(R.Sepal.Length.):(Intercept) 
+##                                           1.380157e-02 
+##       R.Sepal.Length..Bs4(R.Sepal.Length.):(Intercept) 
+##                                           1.476739e-01 
+##       R.Sepal.Length..Bs5(R.Sepal.Length.):(Intercept) 
+##                                           4.680274e-01 
+##       R.Sepal.Length..Bs6(R.Sepal.Length.):(Intercept) 
+##                                                    NaN 
+##       R.Sepal.Length..Bs7(R.Sepal.Length.):(Intercept) 
+##                                                    NaN 
+## R.Sepal.Length..Bs1(R.Sepal.Length.):Speciesversicolor 
+##                                           5.968661e-04 
+## R.Sepal.Length..Bs2(R.Sepal.Length.):Speciesversicolor 
+##                                           2.662282e-01 
+## R.Sepal.Length..Bs3(R.Sepal.Length.):Speciesversicolor 
+##                                           2.064654e-01 
+## R.Sepal.Length..Bs4(R.Sepal.Length.):Speciesversicolor 
+##                                           6.452768e-01 
+## R.Sepal.Length..Bs5(R.Sepal.Length.):Speciesversicolor 
+##                                           6.787381e-01 
+## R.Sepal.Length..Bs6(R.Sepal.Length.):Speciesversicolor 
+##                                                    NaN 
+## R.Sepal.Length..Bs7(R.Sepal.Length.):Speciesversicolor 
+##                                           0.000000e+00 
+##  R.Sepal.Length..Bs1(R.Sepal.Length.):Speciesvirginica 
+##                                           1.557602e-03 
+##  R.Sepal.Length..Bs2(R.Sepal.Length.):Speciesvirginica 
+##                                           2.437454e-01 
+##  R.Sepal.Length..Bs3(R.Sepal.Length.):Speciesvirginica 
+##                                           1.307675e-01 
+##  R.Sepal.Length..Bs4(R.Sepal.Length.):Speciesvirginica 
+##                                           1.227857e-01 
+##  R.Sepal.Length..Bs5(R.Sepal.Length.):Speciesvirginica 
+##                                           4.632490e-01 
+##  R.Sepal.Length..Bs6(R.Sepal.Length.):Speciesvirginica 
+##                                                    NaN 
+##  R.Sepal.Length..Bs7(R.Sepal.Length.):Speciesvirginica 
+##                                                    NaN 
+##         R.Sepal.Width..Bs1(R.Sepal.Width.):(Intercept) 
+##                                           2.122496e-03 
+##         R.Sepal.Width..Bs2(R.Sepal.Width.):(Intercept) 
+##                                           8.877525e-03 
+##         R.Sepal.Width..Bs3(R.Sepal.Width.):(Intercept) 
+##                                           2.292657e-01 
+##         R.Sepal.Width..Bs4(R.Sepal.Width.):(Intercept) 
+##                                           5.360772e-01 
+##         R.Sepal.Width..Bs5(R.Sepal.Width.):(Intercept) 
+##                                           9.687423e-01 
+##         R.Sepal.Width..Bs6(R.Sepal.Width.):(Intercept) 
+##                                           2.321392e-01 
+##         R.Sepal.Width..Bs7(R.Sepal.Width.):(Intercept) 
+##                                           3.590018e-05 
+##   R.Sepal.Width..Bs1(R.Sepal.Width.):Speciesversicolor 
+##                                           6.907742e-02 
+##   R.Sepal.Width..Bs2(R.Sepal.Width.):Speciesversicolor 
+##                                           3.403909e-02 
+##   R.Sepal.Width..Bs3(R.Sepal.Width.):Speciesversicolor 
+##                                           4.471331e-01 
+##   R.Sepal.Width..Bs4(R.Sepal.Width.):Speciesversicolor 
+##                                           5.963660e-01 
+##   R.Sepal.Width..Bs5(R.Sepal.Width.):Speciesversicolor 
+##                                           8.204844e-01 
+##   R.Sepal.Width..Bs6(R.Sepal.Width.):Speciesversicolor 
+##                                           8.858936e-01 
+##   R.Sepal.Width..Bs7(R.Sepal.Width.):Speciesversicolor 
+##                                           7.526741e-01 
+##    R.Sepal.Width..Bs1(R.Sepal.Width.):Speciesvirginica 
+##                                           3.856293e-01 
+##    R.Sepal.Width..Bs2(R.Sepal.Width.):Speciesvirginica 
+##                                           1.321810e-01 
+##    R.Sepal.Width..Bs3(R.Sepal.Width.):Speciesvirginica 
+##                                           5.164960e-01 
+##    R.Sepal.Width..Bs4(R.Sepal.Width.):Speciesvirginica 
+##                                           3.955646e-01 
+##    R.Sepal.Width..Bs5(R.Sepal.Width.):Speciesvirginica 
+##                                           3.236615e-01 
+##    R.Sepal.Width..Bs6(R.Sepal.Width.):Speciesvirginica 
+##                                           2.348285e-02 
+##    R.Sepal.Width..Bs7(R.Sepal.Width.):Speciesvirginica 
+##                                           2.909878e-03 
+##       R.Petal.Length..Bs1(R.Petal.Length.):(Intercept) 
+##                                           3.763134e-02 
+##       R.Petal.Length..Bs2(R.Petal.Length.):(Intercept) 
+##                                           2.078261e-08 
+##       R.Petal.Length..Bs3(R.Petal.Length.):(Intercept) 
+##                                           7.996970e-01 
+##       R.Petal.Length..Bs4(R.Petal.Length.):(Intercept) 
+##                                           9.797968e-01 
+##       R.Petal.Length..Bs5(R.Petal.Length.):(Intercept) 
+##                                           9.964740e-01 
+##       R.Petal.Length..Bs6(R.Petal.Length.):(Intercept) 
+##                                           5.851175e-05 
+##       R.Petal.Length..Bs7(R.Petal.Length.):(Intercept) 
+##                                           5.851725e-06 
+## R.Petal.Length..Bs1(R.Petal.Length.):Speciesversicolor 
+##                                           9.807156e-01 
+## R.Petal.Length..Bs2(R.Petal.Length.):Speciesversicolor 
+##                                           9.708672e-01 
+## R.Petal.Length..Bs3(R.Petal.Length.):Speciesversicolor 
+##                                           9.556924e-01 
+## R.Petal.Length..Bs4(R.Petal.Length.):Speciesversicolor 
+##                                           9.784694e-01 
+## R.Petal.Length..Bs5(R.Petal.Length.):Speciesversicolor 
+##                                           9.961442e-01 
+## R.Petal.Length..Bs6(R.Petal.Length.):Speciesversicolor 
+##                                           8.778095e-01 
+## R.Petal.Length..Bs7(R.Petal.Length.):Speciesversicolor 
+##                                           9.026452e-01 
+##  R.Petal.Length..Bs1(R.Petal.Length.):Speciesvirginica 
+##                                           9.993597e-01 
+##  R.Petal.Length..Bs2(R.Petal.Length.):Speciesvirginica 
+##                                           9.956522e-01 
+##  R.Petal.Length..Bs3(R.Petal.Length.):Speciesvirginica 
+##                                           9.688264e-01 
+##  R.Petal.Length..Bs4(R.Petal.Length.):Speciesvirginica 
+##                                           9.780993e-01 
+##  R.Petal.Length..Bs5(R.Petal.Length.):Speciesvirginica 
+##                                           9.958839e-01 
+##  R.Petal.Length..Bs6(R.Petal.Length.):Speciesvirginica 
+##                                           5.794831e-06 
+##  R.Petal.Length..Bs7(R.Petal.Length.):Speciesvirginica 
+##                                           2.154296e-05 
+##         R.Petal.Width..Bs1(R.Petal.Width.):(Intercept) 
+##                                           9.081835e-03 
+##         R.Petal.Width..Bs2(R.Petal.Width.):(Intercept) 
+##                                           1.659434e-08 
+##         R.Petal.Width..Bs3(R.Petal.Width.):(Intercept) 
+##                                           7.174752e-01 
+##         R.Petal.Width..Bs4(R.Petal.Width.):(Intercept) 
+##                                           9.551626e-01 
+##         R.Petal.Width..Bs5(R.Petal.Width.):(Intercept) 
+##                                           9.797720e-01 
+##         R.Petal.Width..Bs6(R.Petal.Width.):(Intercept) 
+##                                           8.820004e-01 
+##         R.Petal.Width..Bs7(R.Petal.Width.):(Intercept) 
+##                                           9.368885e-01 
+##   R.Petal.Width..Bs1(R.Petal.Width.):Speciesversicolor 
+##                                           9.716019e-01 
+##   R.Petal.Width..Bs2(R.Petal.Width.):Speciesversicolor 
+##                                           9.922099e-01 
+##   R.Petal.Width..Bs3(R.Petal.Width.):Speciesversicolor 
+##                                           9.896025e-01 
+##   R.Petal.Width..Bs4(R.Petal.Width.):Speciesversicolor 
+##                                           9.855446e-01 
+##   R.Petal.Width..Bs5(R.Petal.Width.):Speciesversicolor 
+##                                           9.842339e-01 
+##   R.Petal.Width..Bs6(R.Petal.Width.):Speciesversicolor 
+##                                           9.926442e-01 
+##   R.Petal.Width..Bs7(R.Petal.Width.):Speciesversicolor 
+##                                           9.908001e-01 
+##    R.Petal.Width..Bs1(R.Petal.Width.):Speciesvirginica 
+##                                           9.968688e-01 
+##    R.Petal.Width..Bs2(R.Petal.Width.):Speciesvirginica 
+##                                           9.937874e-01 
+##    R.Petal.Width..Bs3(R.Petal.Width.):Speciesvirginica 
+##                                           9.741274e-01 
+##    R.Petal.Width..Bs4(R.Petal.Width.):Speciesvirginica 
+##                                           9.207326e-01 
+##    R.Petal.Width..Bs5(R.Petal.Width.):Speciesvirginica 
+##                                           9.761335e-01 
+##    R.Petal.Width..Bs6(R.Petal.Width.):Speciesvirginica 
+##                                           8.644653e-01 
+##    R.Petal.Width..Bs7(R.Petal.Width.):Speciesvirginica 
+##                                           9.442976e-01 
+##             R.Sepal.Width..R.Sepal.Length..(Intercept) 
+##                                           1.575414e-07 
+##       R.Sepal.Width..R.Sepal.Length..Speciesversicolor 
+##                                           6.822657e-02 
+##        R.Sepal.Width..R.Sepal.Length..Speciesvirginica 
+##                                           1.550339e-02 
+##            R.Petal.Length..R.Sepal.Length..(Intercept) 
+##                                           1.214726e-01 
+##      R.Petal.Length..R.Sepal.Length..Speciesversicolor 
+##                                           3.350744e-02 
+##       R.Petal.Length..R.Sepal.Length..Speciesvirginica 
+##                                           1.976705e-04 
+##             R.Petal.Length..R.Sepal.Width..(Intercept) 
+##                                           7.051224e-01 
+##       R.Petal.Length..R.Sepal.Width..Speciesversicolor 
+##                                           1.587814e-01 
+##        R.Petal.Length..R.Sepal.Width..Speciesvirginica 
+##                                           7.861155e-01 
+##             R.Petal.Width..R.Sepal.Length..(Intercept) 
+##                                           5.658019e-01 
+##       R.Petal.Width..R.Sepal.Length..Speciesversicolor 
+##                                           6.980269e-02 
+##        R.Petal.Width..R.Sepal.Length..Speciesvirginica 
+##                                           1.986465e-01 
+##              R.Petal.Width..R.Sepal.Width..(Intercept) 
+##                                           5.171320e-01 
+##        R.Petal.Width..R.Sepal.Width..Speciesversicolor 
+##                                           1.642660e-02 
+##         R.Petal.Width..R.Sepal.Width..Speciesvirginica 
+##                                           2.337744e-02 
+##             R.Petal.Width..R.Petal.Length..(Intercept) 
+##                                           6.626364e-02 
+##       R.Petal.Width..R.Petal.Length..Speciesversicolor 
+##                                           7.739927e-03 
+##        R.Petal.Width..R.Petal.Length..Speciesvirginica 
+##                                           8.380176e-01</code></pre>
 <pre class="r"><code>m7$AIC</code></pre>
 <pre><code>## [1] 200.4695</code></pre>
 <pre class="r"><code>m7$BIC</code></pre>
 <pre><code>## [1] 507.5543</code></pre>
+<pre class="r"><code>m7$n_par_marginal</code></pre>
+<pre><code>## [1] 84</code></pre>
+<pre class="r"><code>m7$n_par_multivariate</code></pre>
+<pre><code>## [1] 18</code></pre>
 <p>Comparing the AIC and BIC of all these models:</p>
 <pre class="r"><code>c(m1$AIC, m2$AIC, m3$AIC, m4$AIC, m5$AIC, m6$AIC, m7$AIC)</code></pre>
 <pre><code>## [1] 709.4514 733.3813 604.2948 679.0818 132.7454 201.6944 200.4695</code></pre>
@@ -1312,7 +2233,7 @@ coef(m7)</code></pre>
 </div>
 <div id="session-info" class="section level2">
 <h2>Session Info</h2>
-<pre><code>## [1] &quot;Fri Oct 18 09:04:10 2024&quot;</code></pre>
+<pre><code>## [1] &quot;Fri Oct 18 10:08:52 2024&quot;</code></pre>
 <pre><code>## R version 4.4.1 (2024-06-14)
 ## Platform: aarch64-apple-darwin20
 ## Running under: macOS Sonoma 14.4
@@ -1331,34 +2252,32 @@ coef(m7)</code></pre>
 ## [1] stats     graphics  grDevices utils     datasets  methods   base     
 ## 
 ## other attached packages:
-## [1] benchmarkme_1.0.8 qrng_0.0-10       GGally_2.2.1      ggplot2_3.5.1    
-## [5] tram_1.1-2        mvtnorm_1.3-1     mlt_1.6-0         basefun_1.1-4    
-## [9] variables_1.1-1  
+## [1] qrng_0.0-10     GGally_2.2.1    ggplot2_3.5.1   tram_1.1-2     
+## [5] mvtnorm_1.3-1   mlt_1.6-0       basefun_1.1-4   variables_1.1-1
 ## 
 ## loaded via a namespace (and not attached):
-##  [1] benchmarkmeData_1.0.4 gtable_0.3.5          xfun_0.48            
-##  [4] bslib_0.8.0           lattice_0.22-6        numDeriv_2016.8-1.1  
-##  [7] quadprog_1.5-8        vctrs_0.6.5           tools_4.4.1          
-## [10] generics_0.1.3        parallel_4.4.1        sandwich_3.1-1       
-## [13] tibble_3.2.1          fansi_1.0.6           coneproj_1.19        
-## [16] pkgconfig_2.0.3       Matrix_1.7-0          RColorBrewer_1.1-3   
-## [19] alabama_2023.1.0      lifecycle_1.0.4       compiler_4.4.1       
-## [22] munsell_0.5.1         codetools_0.2-20      htmltools_0.5.8.1    
-## [25] sass_0.4.9            yaml_2.3.10           Formula_1.2-5        
-## [28] pillar_1.9.0          nloptr_2.1.1          jquerylib_0.1.4      
-## [31] tidyr_1.3.1           MASS_7.3-61           cachem_1.1.0         
-## [34] iterators_1.0.14      foreach_1.5.2         multcomp_1.4-26      
-## [37] ggstats_0.7.0         tidyselect_1.2.1      digest_0.6.37        
-## [40] dplyr_1.1.4           purrr_1.0.2           splines_4.4.1        
-## [43] fastmap_1.2.0         grid_4.4.1            colorspace_2.1-1     
-## [46] cli_3.6.3             magrittr_2.0.3        survival_3.7-0       
-## [49] utf8_1.2.4            orthopolynom_1.0-6.1  TH.data_1.1-2        
-## [52] withr_3.0.1           scales_1.3.0          httr_1.4.7           
-## [55] rmarkdown_2.28        BB_2019.10-1          zoo_1.8-12           
-## [58] evaluate_1.0.1        knitr_1.48            doParallel_1.0.17    
-## [61] rlang_1.1.4           Rcpp_1.0.13           glue_1.8.0           
-## [64] polynom_1.4-1         rstudioapi_0.17.0     jsonlite_1.8.9       
-## [67] R6_2.5.1              plyr_1.8.9</code></pre>
+##  [1] gtable_0.3.5         xfun_0.48            bslib_0.8.0         
+##  [4] lattice_0.22-6       numDeriv_2016.8-1.1  quadprog_1.5-8      
+##  [7] vctrs_0.6.5          tools_4.4.1          generics_0.1.3      
+## [10] sandwich_3.1-1       tibble_3.2.1         fansi_1.0.6         
+## [13] highr_0.11           coneproj_1.19        pkgconfig_2.0.3     
+## [16] Matrix_1.7-0         RColorBrewer_1.1-3   alabama_2023.1.0    
+## [19] lifecycle_1.0.4      farver_2.1.2         compiler_4.4.1      
+## [22] munsell_0.5.1        codetools_0.2-20     htmltools_0.5.8.1   
+## [25] sass_0.4.9           yaml_2.3.10          Formula_1.2-5       
+## [28] pillar_1.9.0         nloptr_2.1.1         jquerylib_0.1.4     
+## [31] tidyr_1.3.1          MASS_7.3-61          cachem_1.1.0        
+## [34] multcomp_1.4-26      ggstats_0.7.0        tidyselect_1.2.1    
+## [37] digest_0.6.37        dplyr_1.1.4          purrr_1.0.2         
+## [40] labeling_0.4.3       splines_4.4.1        fastmap_1.2.0       
+## [43] grid_4.4.1           colorspace_2.1-1     cli_3.6.3           
+## [46] magrittr_2.0.3       survival_3.7-0       utf8_1.2.4          
+## [49] orthopolynom_1.0-6.1 TH.data_1.1-2        withr_3.0.1         
+## [52] scales_1.3.0         rmarkdown_2.28       BB_2019.10-1        
+## [55] zoo_1.8-12           evaluate_1.0.1       knitr_1.48          
+## [58] rlang_1.1.4          Rcpp_1.0.13          glue_1.8.0          
+## [61] polynom_1.4-1        rstudioapi_0.17.0    jsonlite_1.8.9      
+## [64] R6_2.5.1             plyr_1.8.9</code></pre>
 <pre><code>## 
 ## CPU: Apple M3 Max | Cores: 16
 ## RAM: 64.0 GiB</code></pre>
