@@ -146,7 +146,8 @@ fit_mmlt_flexible <- function(dataframe,
       n_par_total = n_par_total,
       n_par_marginal = n_par_marginal,
       n_par_multivariate = n_par_multivariate,
-      n_obs = n_obs
+      n_obs = n_obs,
+      n_var = length(nm)
     )
   )
 }
@@ -193,6 +194,7 @@ m1$n_par_marginal
 m1$n_par_multivariate
 m1$n_par_total
 m1$n_obs
+m1$n_var
 
 # if we only want to see the correlation p-values and format the nicely:
 library(biostatUZH) # installation: devtools::install_github(repo = "felix-hof/biostatUZH")
@@ -334,11 +336,32 @@ c(m1$BIC, m2$BIC, m3$BIC, m4$BIC, m5$BIC, m6$BIC, m7$BIC)
 
 ```
 
-
+## Visualisation of the correlation matrix
 
 ```{r}
+library(pheatmap)
+library(viridis)
+
+pheatmap(m2$coef_corr,
+         color = viridis(1000),
+         clustering_method = "ward.D2",
+         display_numbers = TRUE)  
 
 
+library(corrplot)
+corrplot(m2$coef_corr, method = "square", 
+         type = "lower", 
+         order = "hclust", 
+         hclust.method = "ward.D2", 
+         tl.pos = "ld",
+         tl.cex = 0.5, 
+         tl.col = "black", 
+         tl.srt = 45,
+         addCoef.col = "black") 
+
+library(ggcorrplot)
+ggcorrplot(m2$coef_corr, lab = TRUE) + 
+  scale_fill_gradientn(colors = viridis(1000, option = 'D'))
 ```
 
 
