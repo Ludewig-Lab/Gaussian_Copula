@@ -366,27 +366,141 @@ ggcorrplot(m2$coef_corr, lab = TRUE) +
   scale_fill_gradientn(colors = viridis(1000, option = 'D'))
 ```
 
+## Likelihood Ratio Test for Model Comparison
 
+We can use the likelihood arguments from inside the model together with the known number of parameters of each.
+*If* the two models are nested (i.e. one contains all parameters of the other), the likelihood ratio follows - asymptotically - a Chi Square distribution with the degrees of freedom being the difference between these two nested models.
+The resulting p-value can be used to quantify whether the larger model improves the model fit to the data.
 
 ```{r}
+lr_test_copula <- function(outer_model, inner_model){
+  
+  if(outer_model$n_par_total < inner_model$n_par_total){ # ensure correct order
+    temp <- outer_model
+    outer_model <- inner_model
+    inner_model <- temp
+  }
+  
+  if (any(!names(inner_model$coef_lambda) %in% names(outer_model$coef_lambda))) {   # Check if any coefficients are missing
+    missing_coefs <- names(inner_model$coef_lambda)[!names(inner_model$coef_lambda) %in% names(outer_model$coef_lambda)]
+    print(
+      warning("The following coefficients from the inner model are not present in the outer model: ", paste(missing_coefs, collapse = ", "))
+    )  
+    return(NULL)
+  }
 
+  
+  outer_log_likelihood <- as.numeric(outer_model$logLik)
+  outer_n_par <- outer_model$n_par_total
+  
+  inner_log_likelihood <- as.numeric(inner_model$logLik)
+  inner_n_par <- inner_model$n_par_total
+  
+  # Pvalue
+  lr_statistic <- -2*(inner_log_likelihood - outer_log_likelihood)
+  delta_df <- outer_n_par-inner_n_par
+  p_value <- pchisq(lr_statistic, df=delta_df, lower.tail=FALSE)
+
+  result_table <- data.frame(
+    Model = c("Inner Model", "Outer Model"),
+    npar = c(inner_n_par, outer_n_par),
+    AIC = c(inner_model$AIC, outer_model$AIC),
+    BIC = c(inner_model$BIC, outer_model$BIC),
+    logLik = c(inner_log_likelihood, outer_log_likelihood),
+    deviance = c(-2 * inner_log_likelihood, -2 * outer_log_likelihood),
+    Chisq = c(NA, lr_statistic),
+    Df = c(NA, delta_df),
+    "Pr(>Chisq)" = c(NA, p_value)
+  )
+  
+  print(result_table, row.names = FALSE)
+
+  return(p_value)
+}
 
 ```
 
 
 
+
+
 ```{r}
+m_outer <- fit_mmlt_flexible(dataframe,
+                        marginal_formula="~ 1",
+                        multivariate_formula="~ Species",
+                        continuous_vars = c("Sepal.Length", "Sepal.Width",  "Petal.Length", "Petal.Width" ),
+                        discrete_vars = c(),
+                        order=6
+)
+
+m_inner <- fit_mmlt_flexible(dataframe,
+                        marginal_formula="~ 1",
+                        multivariate_formula="~ Species",
+                        continuous_vars = c("Sepal.Length", "Sepal.Width",  "Petal.Length", "Petal.Width" ),
+                        discrete_vars = c(),
+                        order=2
+)
+
+lr_test_copula(m_outer, m_inner)
+
+
+m_inner <- fit_mmlt_flexible(dataframe,
+                        marginal_formula="~ 1",
+                        multivariate_formula="~ Species",
+                        continuous_vars = c("Sepal.Length", "Sepal.Width",  "Petal.Length", "Petal.Width" ),
+                        discrete_vars = c(),
+                        order=5
+)
+
+lr_test_copula(m_outer, m_inner)
+
+```
+
+
+```{r}
+m_outer <- fit_mmlt_flexible(dataframe,
+                        marginal_formula="~ 1",
+                        multivariate_formula="~ Species",
+                        continuous_vars = c("Sepal.Length", "Sepal.Width",  "Petal.Length", "Petal.Width" ),
+                        discrete_vars = c(),
+                        exclude_vars = c()
+)
+
+m_inner <- fit_mmlt_flexible(dataframe,
+                        marginal_formula="~ 1",
+                        multivariate_formula="~ 1",
+                        continuous_vars = c("Sepal.Length", "Sepal.Width",  "Petal.Length", "Petal.Width" ),
+                        discrete_vars = c(),
+                        exclude_vars = c("Species")
+)
+
+lr_test_copula(m_outer, m_inner)
 
 
 ```
 
 
-
 ```{r}
+ m_inner <- fit_mmlt_flexible(dataframe,
+                        marginal_formula="~ 1",
+                        multivariate_formula="~ 1",
+                        continuous_vars = c("Sepal.Length", "Sepal.Width",  "Petal.Length", "Petal.Width" ),
+                        discrete_vars = c(),
+                        exclude_vars = c("Petal.Width", "Species")
+)
+
+m_outer <- fit_mmlt_flexible(dataframe,
+                        marginal_formula="~ 1",
+                        multivariate_formula="~ 1",
+                        continuous_vars = c("Sepal.Length", "Sepal.Width",  "Petal.Length", "Petal.Width" ),
+                        discrete_vars = c(),
+                        exclude_vars = c("Species")
+)
+
+lr_test_copula(m_outer, m_inner)
 
 
 ```
-
 
 
 ```{r}
