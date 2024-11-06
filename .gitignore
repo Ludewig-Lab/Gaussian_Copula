@@ -5,3 +5,4 @@
 /copula_demo_cache
 /copula_demo_files
 .RDataTmp
+.DS_Store
